@@ -1,0 +1,68 @@
+---
+title: "Golden_Skirt_Project"
+author: "Lingzheng He"
+date: "12/7/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Load the data
+```{r}
+library(igraph)
+library(plyr)
+library(dplyr)
+people <- read.delim("data_people.txt", header=TRUE, sep=" ")
+company <- read.delim("data_companies.txt", header=FALSE, sep="\t")
+data <- read.delim("net2m_2002-05-01.txt", header=FALSE, sep=" ")
+g <- graph.data.frame(data, directed=FALSE)
+
+V(g)$type <- bipartite_mapping(g)$type #TRUE - company, FALSE - people
+V(g)$type
+
+# add vertex attribute "label" (name of the director) and "gender" to people vertex
+g <- g %>%
+  set_vertex_attr(.,
+                  "label",
+                  index=V(g)[V(g)$type == TRUE],
+                  value=sapply(V(g)$name, function(x){
+                    people %>%
+                      filter(id == x) %>%
+                      .$name
+                    })) %>%
+  set_vertex_attr(.,
+                  "gender",
+                  index=V(g)[V(g)$type == TRUE],
+                  value=sapply(V(g)$name, function(x){
+                    people %>%
+                      filter(id == x) %>%
+                      .$gender
+                    }))
+
+# add vertex attribute "label" (name of the company) to company vertex
+g <- g %>%
+  set_vertex_attr(.,
+                  "label",
+                  index=V(g)[V(g)$type == TRUE],
+                  value=sapply(V(g)$name, function(x){
+                    company %>%
+                      filter(V1 == x) %>%
+                      .$V3
+                    }))
+V(g)$label
+V(g)$gender
+summary(g)
+
+# plot the bipartite network
+V(g)$shape <- ifelse(V(g)$type, "square", "circle")
+plot(g, vertex.size=4, vertex.label=NA, vertex.color=as.factor(V(g)$gender), edge.width=3, layout = layout_with_graphopt)
+plot(g, vertex.size=3, vertex.label=NA, vertex.color=as.factor(V(g)$gender), layout = layout.bipartite)
+
+```
+
+# Community Detection
+```{r}
+
+```
