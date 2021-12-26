@@ -3,66 +3,172 @@ title: "Golden_Skirt_Project"
 author: "Lingzheng He"
 date: "12/7/2021"
 output: html_document
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-# Load the data
+# Load Library
 ```{r}
+setwd('./Downloads/SOC730') #You might want to change the working directory
 library(igraph)
 library(plyr)
 library(dplyr)
-people <- read.delim("data_people.txt", header=TRUE, sep=" ")
-company <- read.delim("data_companies.txt", header=FALSE, sep="\t")
-data <- read.delim("net2m_2002-05-01.txt", header=FALSE, sep=" ")
-g <- graph.data.frame(data, directed=FALSE)
+library(animation)
+```
 
-V(g)$type <- bipartite_mapping(g)$type #TRUE - company, FALSE - people
-V(g)$type
+# Load metadata files
+```{r}
+people <- read.delim("./data_people.txt", header=TRUE, sep=" ")
+company <- read.delim("./data_companies.txt", header=FALSE, sep="\t")
+```
 
-# add vertex attribute "label" (name of the director) and "gender" to people vertex
-g <- g %>%
+# Visualize two mode networks for 2002-05-01 and 2011-08-01 networks
+```{r}
+data_start <- read.delim("./TwoModeData/net2m_2002-05-01.txt", header=FALSE, sep=" ")
+data_end <- read.delim("./TwoModeData/net2m_2011-08-01.txt", header=FALSE, sep=" ")
+# hash the company id
+data_start$V1 <- data_start$V1 + 10000
+data_end$V1 <- data_end$V1 + 10000
+g_start <- graph.data.frame(data_start, directed=FALSE)
+g_end <- graph.data.frame(data_end, directed=FALSE)
+# assign type to vertex
+# TRUE - company, FALSE - people
+V(g_start)$type <- V(g_start)$name %in% data_start[,1]
+V(g_end)$type <- V(g_end)$name %in% data_end[,1]
+# add vertex attribute "label" (name of the company) to company vertex
+g_start <- g_start %>%
   set_vertex_attr(.,
                   "label",
-                  index=V(g)[V(g)$type == TRUE],
-                  value=sapply(V(g)$name, function(x){
+                  index=V(g_start)[V(g_start)$type == TRUE],
+                  value=sapply(V(g_start)$name, function(x){
+                    company %>%
+                      filter(V1+10000 == x) %>%
+                      .$V3
+                    })) %>%
+  set_vertex_attr(.,
+                  "gender",
+                  index=V(g_start)[V(g_start)$type == TRUE],
+                  value=0)
+
+g_end <- g_end %>%
+  set_vertex_attr(.,
+                  "label",
+                  index=V(g_end)[V(g_end)$type == TRUE],
+                  value=sapply(V(g_end)$name, function(x){
+                    company %>%
+                      filter(V1+10000 == x) %>%
+                      .$V3
+                    })) %>%
+  set_vertex_attr(.,
+                  "gender",
+                  index=V(g_end)[V(g_end)$type == TRUE],
+                  value=0)
+
+# add vertex attribute "label" (name of the director) and "gender" to people vertex
+g_start <- g_start %>%
+  set_vertex_attr(.,
+                  "label",
+                  index=V(g_start)[V(g_start)$type == FALSE],
+                  value=sapply(V(g_start)$name, function(x){
                     people %>%
                       filter(id == x) %>%
                       .$name
                     })) %>%
   set_vertex_attr(.,
                   "gender",
-                  index=V(g)[V(g)$type == TRUE],
-                  value=sapply(V(g)$name, function(x){
+                  index=V(g_start)[V(g_start)$type == FALSE],
+                  value=sapply(V(g_start)$name, function(x){
+                    people %>%
+                      filter(id == x) %>%
+                     .$gender
+                    })) # 1-Men; 2-Women
+
+g_end <- g_end %>%
+  set_vertex_attr(.,
+                  "label",
+                  index=V(g_end)[V(g_end)$type == FALSE],
+                  value=sapply(V(g_end)$name, function(x){
+                    people %>%
+                      filter(id == x) %>%
+                      .$name
+                    })) %>%
+  set_vertex_attr(.,
+                  "gender",
+                  index=V(g_end)[V(g_end)$type == FALSE],
+                  value=sapply(V(g_end)$name, function(x){
+                    people %>%
+                      filter(id == x) %>%
+                     .$gender
+                    })) # 1-Men; 2-Women
+
+V(g_start)$shape <- ifelse(V(g_start)$type, "square", "circle")
+V(g_end)$shape <- ifelse(V(g_end)$type, "square", "circle")
+plot(g_start, vertex.size=4, vertex.label=NA, edge.width=3, vertex.color=unlist(unlist(V(g_start)$gender)), layout = layout_with_graphopt)
+plot(g_end, vertex.size=4, vertex.label=NA, edge.width=3, vertex.color=unlist(unlist(V(g_end)$gender)), layout = layout_with_graphopt)
+```
+
+# Calculate eigenvector value of directors in one-mode networks from 2002-08 to 2011-08
+```{r}
+# You can either bipartite.projection() the two-mode networks or simply read the provided one-mode networks
+one_mode_2002_graph <- graph.data.frame(read.delim("./OneModeData/net1m_2002-08-01.txt", header=FALSE, sep=" "), directed=FALSE)
+one_mode_2003_graph <- graph.data.frame(read.delim("./OneModeData/net1m_2003-08-01.txt", header=FALSE, sep=" "), directed=FALSE)
+one_mode_2004_graph <- graph.data.frame(read.delim("./OneModeData/net1m_2004-08-01.txt", header=FALSE, sep=" "), directed=FALSE)
+one_mode_2005_graph <- graph.data.frame(read.delim("./OneModeData/net1m_2005-08-01.txt", header=FALSE, sep=" "), directed=FALSE)
+one_mode_2006_graph <- graph.data.frame(read.delim("./OneModeData/net1m_2006-08-01.txt", header=FALSE, sep=" "), directed=FALSE)
+one_mode_2007_graph <- graph.data.frame(read.delim("./OneModeData/net1m_2007-08-01.txt", header=FALSE, sep=" "), directed=FALSE)
+one_mode_2008_graph <- graph.data.frame(read.delim("./OneModeData/net1m_2008-08-01.txt", header=FALSE, sep=" "), directed=FALSE)
+one_mode_2009_graph <- graph.data.frame(read.delim("./OneModeData/net1m_2009-08-01.txt", header=FALSE, sep=" "), directed=FALSE)
+one_mode_2010_graph <- graph.data.frame(read.delim("./OneModeData/net1m_2010-08-01.txt", header=FALSE, sep=" "), directed=FALSE)
+one_mode_2011_graph <- graph.data.frame(read.delim("./OneModeData/net1m_2011-08-01.txt", header=FALSE, sep=" "), directed=FALSE)
+# Need a cleaner way to load data in the future
+graphs<- list(one_mode_2002_graph, one_mode_2003_graph, one_mode_2004_graph, one_mode_2005_graph, one_mode_2006_graph, one_mode_2007_graph, one_mode_2008_graph, one_mode_2009_graph, one_mode_2010_graph, one_mode_2011_graph)
+
+set.attribute <- function(gdf) {
+  gdf <- gdf %>% set_vertex_attr(.,
+                  "gender",
+                  index=V(gdf),
+                  value=sapply(V(gdf)$name, function(x){
                     people %>%
                       filter(id == x) %>%
                       .$gender
                     }))
+  return (gdf)
+}
+# assign gender attribute to all the graphs
+graphs <- lapply(graphs, set.attribute)
 
-# add vertex attribute "label" (name of the company) to company vertex
-g <- g %>%
-  set_vertex_attr(.,
-                  "label",
-                  index=V(g)[V(g)$type == TRUE],
-                  value=sapply(V(g)$name, function(x){
-                    company %>%
-                      filter(V1 == x) %>%
-                      .$V3
-                    }))
-V(g)$label
-V(g)$gender
-summary(g)
+# calculate mean eigenvector for women and men prominent directors
+graphs_eigen <- lapply(graphs, function(x){evcent(x)$vector})
+graphs_eigen_men_mean <- lapply(graphs_eigen, function(x){mean(x[V(one_mode_2011_graph)[gender==1]$name], na.rm=TRUE)})
+graphs_eigen_women_mean <- lapply(graphs_eigen, function(x){mean(x[V(one_mode_2011_graph)[gender==2]$name], na.rm=TRUE)})
 
-# plot the bipartite network
-V(g)$shape <- ifelse(V(g)$type, "square", "circle")
-plot(g, vertex.size=4, vertex.label=NA, vertex.color=as.factor(V(g)$gender), edge.width=3, layout = layout_with_graphopt)
-plot(g, vertex.size=3, vertex.label=NA, vertex.color=as.factor(V(g)$gender), layout = layout.bipartite)
-
+# plot the eigenvector
+png(file = "eigenvector.jpg")
+plot(unlist(graphs_eigen_women_mean), type="o", col="red", xaxt="n", xlab="Year", ylab="Mean Eigenvector Centrality", main="Mean Eigenvector for Men and Women Prominent Directors")
+lines(unlist(graphs_eigen_men_mean), type="o", col="blue")
+axis(side=1, at=1:10, labels=c("2002", "2003", "2004", "2005", "2006", "2007", "2008", "2009", "2010", "2011"))
+legend(x = "topright", legend=c("Women", "Men"), lty = 1, col=c("red", "blue"))
+dev.off()
 ```
 
-# Community Detection
+# Small-worldliness Analysis
 ```{r}
+# delete women directors from the network
+men_only_graphs <- lapply(graphs, function(x){induced_subgraph(x, V(x)[V(x)$gender==1])})
+  
+# calculate the connectivity of networks
+connectivities_whole <- lapply(graphs, function(x){transitivity(x)})
+connectivities_men_only <- lapply(men_only_graphs, function(x){transitivity(x)})
 
+# plot the connectivity
+png(file = "connectivity.jpg")
+plot(unlist(connectivities_whole), type="o", col="red", xaxt="n", xlab="Year", ylab="Connectivity", main="Connectivity for Original Network and Men-only Network")
+lines(unlist(connectivities_men_only), type="o", col="blue")
+axis(side=1, at=1:10, labels=c("2002", "2003", "2004", "2005", "2006", "2007", "2008", "2009", "2010", "2011"))
+legend(x = "topright", legend=c("Original", "Men-only"), lty = 1, col=c("red", "blue"))
+dev.off()
 ```
